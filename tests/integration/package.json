@@ -1,0 +1,13 @@
+{
+  "name": "copilot-sdk-service-integration-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:deployed": "vitest run deployed.test.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "vitest": "^4.0.18"
+  }
+}

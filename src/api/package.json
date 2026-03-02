@@ -1,0 +1,36 @@
+{
+  "name": "copilot-sdk-service-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Copilot SDK service API — one-shot AI endpoints",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "pnpm exec tsx --watch index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:models": "cd ../../tests/integration && pnpm test",
+    "test:deployed": "cd ../../tests/integration && pnpm test:deployed"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@github/copilot-sdk": "0.1.25",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.0",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "supertest": "^7.2.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

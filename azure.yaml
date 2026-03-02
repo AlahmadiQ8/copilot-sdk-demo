@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/jongio/azd-app/main/schemas/v1.1/azure.yaml.json
+name: copilot-sdk-service
+metadata:
+  template: azure-samples/copilot-sdk-service
+
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: node scripts/get-github-token.mjs
+    posix:
+      shell: sh
+      run: node scripts/get-github-token.mjs
+  prerun:
+    windows:
+      shell: pwsh
+      run: node scripts/get-github-token.mjs
+    posix:
+      shell: sh
+      run: node scripts/get-github-token.mjs
+
+services:
+  api:
+    project: ./src/api
+    language: ts
+    host: containerapp
+    ports: ["3000"]
+    docker:
+      path: ./Dockerfile
+  web:
+    project: ./src/web
+    language: ts
+    host: containerapp
+    ports: ["80"]
+    docker:
+      path: ./Dockerfile
+
+reqs:
+  - name: azd
+    minVersion: "1.23.0"
+  - name: git
+    minVersion: "2.0.0"
+  - name: docker
+  - name: pnpm
+  - name: node
+  - name: gh
