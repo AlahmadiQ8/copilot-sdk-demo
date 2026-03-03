@@ -13,16 +13,19 @@ This is a two-container app deployed on Azure Container Apps:
 | **Application Insights** | `ai-{env}-{suffix}` | APM, request tracing, custom metrics, structured logs |
 | **Log Analytics Workspace** | `law-{env}-{suffix}` | Backing store for App Insights, KQL query engine |
 | **Key Vault** | `kv-{shortname}-{suffix}` | Stores `GITHUB_TOKEN` secret |
-| **Managed Identity** | `id-{env}-{suffix}` | RBAC access to Key Vault and optional Azure OpenAI |
+| **Managed Identity** | `id-{env}-{suffix}` | RBAC access to Key Vault, Cosmos DB, and optional Azure OpenAI |
+| **Cosmos DB (NoSQL)** | `cosmos-{env}-{suffix}` | Conversation store — `messages` container, partition key `/conversationId`, 24h TTL |
 | **Azure OpenAI** *(optional)* | `oai-{env}-{suffix}` | BYOM endpoint (only when `useAzureModel=true`) |
 
 ### Request Flow
 
 ```
 User → Web (nginx :80) → API (Express :3000) → Copilot SDK → GitHub/Azure OpenAI
+                                                 ↕
+                                           Cosmos DB (conversation store)
 ```
 
-The web container proxies `/chat`, `/summarize`, `/health`, and `/config` to the internal API container.
+The web container proxies `/chat`, `/summarize`, `/health`, `/config`, and `/conversations` to the internal API container.
 
 ### API Endpoints
 
@@ -30,8 +33,13 @@ The web container proxies `/chat`, `/summarize`, `/health`, and `/config` to the
 |---|---|---|
 | `/chat` | POST | Multi-turn chat with SSE streaming. Body: `{ message, history? }` |
 | `/summarize` | POST | One-shot text summarization. Body: `{ text }` |
-| `/health` | GET | Health check — returns `{ status, uptime, telemetry }` |
+| `/health` | GET | Health check — returns `{ status, uptime, telemetry, store }` |
 | `/config` | GET | Model configuration — returns `{ model, provider }` |
+| `/conversations` | POST | Create a new conversation. Body: `{ title? }` |
+| `/conversations` | GET | List conversations. Query: `limit`, `offset` |
+| `/conversations/:id` | GET | Get a conversation with full message history |
+| `/conversations/:id` | DELETE | Delete a conversation |
+| `/conversations/:id/messages` | POST | Send a message and stream AI response (SSE). Body: `{ message }` |
 
 ### Model Configuration (3 paths)
 
@@ -49,9 +57,9 @@ The web container proxies `/chat`, `/summarize`, `/health`, and `/config` to the
 
 The API uses `@azure/monitor-opentelemetry` initialized **before** Express loads, which auto-instruments HTTP requests and dependencies. Custom instrumentation adds:
 
-- **Counters**: `chat_requests_total`, `chat_errors_total`, `summarize_requests_total`, `summarize_errors_total`
-- **Histograms**: `chat_duration_ms`, `summarize_duration_ms`
-- **Structured logs**: Emitted via OpenTelemetry Logs API with attributes `{ route, model, provider, durationMs, error }`
+- **Counters**: `chat_requests_total`, `chat_errors_total`, `summarize_requests_total`, `summarize_errors_total`, `conversations_created_total`, `conversations_deleted_total`, `conversation_messages_total`, `cosmos_errors_total`
+- **Histograms**: `chat_duration_ms`, `summarize_duration_ms`, `cosmos_duration_ms`
+- **Structured logs**: Emitted via OpenTelemetry Logs API with attributes `{ route, model, provider, durationMs, error, conversationId }`
 
 All telemetry flows through `APPLICATIONINSIGHTS_CONNECTION_STRING` (injected from Bicep).
 
@@ -78,6 +86,7 @@ The `Properties` column in `AppTraces` contains these custom attributes:
 | `durationMs` | number | Request duration in ms (on completed/failed) |
 | `historyLength` | number | Chat history length (chat only) |
 | `textLength` | number | Input text length (summarize only) |
+| `conversationId` | string | Conversation UUID (conversation endpoints only) |
 | `error` | string | Error message (on failure only) |
 
 ### SeverityLevel Mapping
@@ -240,6 +249,81 @@ AppPerformanceCounters
 | render timechart
 ```
 
+### Cosmos DB Health
+
+```kql
+// Cosmos DB operation errors over time
+AppMetrics
+| where TimeGenerated > ago(1h)
+| where Name == "cosmos_errors_total"
+| summarize sum(Sum) by bin(TimeGenerated, 5m)
+| render timechart
+```
+
+```kql
+// Cosmos DB operation latency by operation type
+AppMetrics
+| where TimeGenerated > ago(1h)
+| where Name == "cosmos_duration_ms"
+| summarize avg(Sum) by tostring(Properties.operation), bin(TimeGenerated, 5m)
+| render timechart
+```
+
+```kql
+// Cosmos DB error log entries
+AppTraces
+| where TimeGenerated > ago(24h)
+| where SeverityLevel >= 3
+| where Message has_any ("Cosmos", "cosmos", "store", "conversation")
+| project TimeGenerated, Message, Properties
+| order by TimeGenerated desc
+```
+
+```kql
+// Conversation lifecycle — creation and deletion rates
+AppMetrics
+| where TimeGenerated > ago(24h)
+| where Name in ("conversations_created_total", "conversations_deleted_total", "conversation_messages_total")
+| summarize sum(Sum) by Name, bin(TimeGenerated, 1h)
+| render timechart
+```
+
+```kql
+// Active conversations (created - deleted)
+let created = AppMetrics
+    | where TimeGenerated > ago(24h)
+    | where Name == "conversations_created_total"
+    | summarize created = sum(Sum);
+let deleted = AppMetrics
+    | where TimeGenerated > ago(24h)
+    | where Name == "conversations_deleted_total"
+    | summarize deleted = sum(Sum);
+created
+| join kind=fullouter deleted on $left.$left == $right.$right
+| project active = coalesce(created, 0) - coalesce(deleted, 0)
+```
+
+```kql
+// Conversation health check — failed vs successful message operations
+AppTraces
+| where TimeGenerated > ago(24h)
+| where Message has_any ("Conversation message", "Failed to create", "Failed to list", "Failed to get")
+| summarize
+    success = countif(SeverityLevel < 3),
+    failures = countif(SeverityLevel >= 3)
+  by bin(TimeGenerated, 15m)
+| render timechart
+```
+
+```kql
+// Cosmos store initialization (first boot / container restart)
+AppTraces
+| where TimeGenerated > ago(24h)
+| where Message == "Cosmos DB store initialized"
+| project TimeGenerated, Properties
+| order by TimeGenerated desc
+```
+
 ---
 
 ## Common Issues & Runbooks
@@ -321,6 +405,91 @@ AppRequests
 - CORS origins match: API env var `ALLOWED_ORIGINS` must include the web container URL
 - Internal DNS: Web nginx proxies to `http://ca-api-{env}-{suffix}.internal.{domain}`
 
+### 6. Conversations endpoint returns 500
+
+**Symptom**: `POST /conversations` or `GET /conversations` returns HTTP 500.
+
+**Check**:
+```kql
+AppTraces
+| where TimeGenerated > ago(1h)
+| where SeverityLevel >= 3
+| where Message has_any ("conversation", "Cosmos", "store")
+| project TimeGenerated, Message, Properties
+| order by TimeGenerated desc
+```
+
+**Possible causes**:
+- `COSMOS_ENDPOINT` env var not set — `/health` will show `store.configured: false`
+- Managed identity missing `Cosmos DB Built-in Data Contributor` role on the Cosmos account
+- Cosmos DB container `messages` not created — check if provisioning completed
+- Network: Container App can't reach Cosmos endpoint (check VNet/firewall rules if applicable)
+
+**Remediation**:
+```bash
+# Verify the env var is present on the container app
+az containerapp show --name ca-api-{env}-{suffix} -g {rg} \
+  --query "properties.template.containers[0].env[?name=='COSMOS_ENDPOINT']"
+
+# Assign Cosmos DB Built-in Data Contributor to the managed identity
+az cosmosdb sql role assignment create \
+  --account-name {cosmos-account} \
+  --resource-group {rg} \
+  --role-definition-name "Cosmos DB Built-in Data Contributor" \
+  --principal-id {managed-identity-principal-id} \
+  --scope "/"
+```
+
+### 7. Cosmos DB latency spikes
+
+**Symptom**: `cosmos_duration_ms` histogram shows p95 > 500ms.
+
+**Check**:
+```kql
+AppMetrics
+| where TimeGenerated > ago(6h)
+| where Name == "cosmos_duration_ms"
+| summarize
+    p50 = percentile(Sum, 50),
+    p95 = percentile(Sum, 95),
+    p99 = percentile(Sum, 99)
+  by tostring(Properties.operation), bin(TimeGenerated, 15m)
+| render timechart
+```
+
+**Possible causes**:
+- Cross-region latency — Cosmos account and Container Apps environment are in different regions
+- RU/s throttling (429 responses) — check Cosmos metrics in Azure portal for Request Unit consumption
+- Large conversation documents (many messages) slowing `read`/`update` operations
+- Cold start — first operation after idle initializes the SDK client
+
+**Remediation**: Check Cosmos DB "Insights" blade for throttled requests. Scale up RU/s or enable autoscale.
+
+### 8. Conversation TTL not expiring
+
+**Symptom**: Old conversations persist beyond 24 hours.
+
+**Check**: Verify TTL is enabled on the `messages` container. Documents include `ttl: 86400` but TTL must also be enabled at the container level in Cosmos (set to `-1` for container-level default or a specific value).
+
+```bash
+az cosmosdb sql container show \
+  --account-name {cosmos-account} \
+  --database-name {COSMOS_DATABASE} \
+  --name messages \
+  --resource-group {rg} \
+  --query "resource.defaultTtl"
+```
+
+If it returns `null`, TTL is not enabled. Enable it:
+```bash
+az cosmosdb sql container update \
+  --account-name {cosmos-account} \
+  --database-name {COSMOS_DATABASE} \
+  --name messages \
+  --resource-group {rg} \
+  --ttl -1
+```
+
 ---
 
 ## Copilot Agent Skills
@@ -356,8 +525,8 @@ The SRE Agent should have the following skills installed from [`microsoft/skills
 
 #### azure-cosmos-ts
 **Source**: `microsoft/skills`
-**Purpose**: Cosmos DB SDK patterns (if adding persistence layer).
-**When to use**: If the service evolves to include a data store for conversation history or analytics.
+**Purpose**: Cosmos DB SDK patterns — `CosmosClient`, `DefaultAzureCredential` auth, container/item CRUD, partition keys, TTL, query execution, error handling.
+**When to use**: Debugging Cosmos connection errors, optimizing queries, adding new fields to conversations, changing TTL or partition strategy.
 
 ### Recommended Skills
 
@@ -380,6 +549,7 @@ In addition to skills, the following MCP tools are available in the Copilot CLI 
 | `azure-monitor` | Query Azure Monitor logs and metrics via KQL |
 | `azure-appservice` | Manage Container Apps, web apps, configurations |
 | `azure-keyvault` | Manage Key Vault secrets and access policies |
+| `azure-cosmos` | Query Cosmos DB databases, containers, and documents |
 | `azure-compute` | VM/VMSS management and monitoring |
 | `azure-acr` | Container Registry operations |
 | `azure-resourcehealth` | Check Azure resource availability status |
@@ -399,5 +569,8 @@ In addition to skills, the following MCP tools are available in the Copilot CLI 
 | **Web Container** | `ca-web-copilot-sdk-app-gic2lx` (external, port 80) |
 | **Container Registry** | `acrcopilotsdkappgic2lx` |
 | **Key Vault** | `kv-csa-gic2lx` |
+| **Cosmos DB env var** | `COSMOS_ENDPOINT` — NoSQL account endpoint URL |
+| **Cosmos DB name env var** | `COSMOS_DATABASE` — defaults to `conversations` |
+| **Cosmos container** | `messages` — partition key `/conversationId`, TTL 86400s (24h) |
 | **Telemetry SDK** | `@azure/monitor-opentelemetry` 1.16.0 + `@opentelemetry/api` 1.9.0 |
 | **Runtime** | Node.js 24 on Alpine Linux |
