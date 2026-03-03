@@ -14,10 +14,10 @@ hooks:
   prerun:
     windows:
       shell: pwsh
-      run: node scripts/get-github-token.mjs
+      run: node scripts/get-github-token.mjs && node scripts/set-cosmos-env.mjs
     posix:
       shell: sh
-      run: node scripts/get-github-token.mjs
+      run: node scripts/get-github-token.mjs && node scripts/set-cosmos-env.mjs
 
 services:
   api:
