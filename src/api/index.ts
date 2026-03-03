@@ -1,3 +1,4 @@
+import "./telemetry.js"; // Must be first — patches HTTP/Express for OpenTelemetry
 import express from "express";
 import cors from "cors";
 import healthRoutes from "./routes/health.js";
