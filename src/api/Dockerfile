@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-COPY tsconfig.json index.ts telemetry.ts model-config.ts client.ts ./
+COPY tsconfig.json index.ts telemetry.ts model-config.ts client.ts store.ts ./
 COPY routes/ ./routes/
 RUN pnpm exec tsc && pnpm prune --prod
 

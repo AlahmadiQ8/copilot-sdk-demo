@@ -323,38 +323,67 @@ AppRequests
 
 ---
 
-## Copilot Extensibility Skills Reference
+## Copilot Agent Skills
 
-The SRE Agent should have the following skills available for investigating and resolving issues:
+The SRE Agent should have the following skills installed from [`microsoft/skills`](https://microsoft.github.io/skills/). Install skills with the Copilot CLI `/skills` command or by adding them to your project's skill configuration.
 
-### azure-kusto
-**Purpose**: Run KQL queries against Log Analytics to investigate logs, metrics, and traces.
-**When to use**: Any time you need to query `AppRequests`, `AppTraces`, `AppExceptions`, `AppMetrics`, or `AppPerformanceCounters`.
-**Workspace ID**: Retrieve via `az monitor log-analytics workspace show --name law-{env}-{suffix} -g {rg} --query customerId -o tsv`.
+### Required Skills
 
-### azure-observability
-**Purpose**: Azure Monitor, Application Insights, Log Analytics, Alerts, and Workbooks operations.
-**When to use**: Setting up or modifying alerts, checking Application Insights configuration, creating workbooks for dashboards.
+#### azure-monitor-opentelemetry-ts *(already installed)*
+**Source**: `microsoft/skills`
+**Purpose**: Guidance for instrumenting Node.js apps with `@azure/monitor-opentelemetry` — tracing, metrics, logs, and Application Insights configuration.
+**When to use**: Updating telemetry code, adding new custom metrics, troubleshooting SDK configuration.
 
-### azure-diagnostics
-**Purpose**: Debug production issues on Azure Container Apps — log analysis, health checks, image pull failures, cold starts.
-**When to use**: Container app is unhealthy, pods not starting, revision deployment failures.
+#### azure-monitor-query-py
+**Source**: `microsoft/skills`
+**Purpose**: Query Log Analytics workspaces and Azure Monitor metrics using `LogsQueryClient` and `MetricsQueryClient`.
+**When to use**: Running KQL queries against `AppRequests`, `AppTraces`, `AppExceptions`, `AppMetrics`, `AppPerformanceCounters`.
 
-### azure-resource-lookup
-**Purpose**: List and find Azure resources across subscriptions.
-**When to use**: Finding resource names, verifying resources exist, checking tags, discovering resource group contents.
+#### azure-monitor-ingestion-py
+**Source**: `microsoft/skills`
+**Purpose**: Send custom logs to Log Analytics via Data Collection Rules (DCR) and Logs Ingestion API.
+**When to use**: Ingesting custom SRE dashboards data or external monitoring data into Log Analytics.
 
-### azure-appservice / azure-compute
-**Purpose**: Manage container apps and compute resources.
-**When to use**: Checking container app status, revision management, scaling configuration.
+#### azure-identity-ts
+**Source**: `microsoft/skills`
+**Purpose**: Authentication patterns for Azure SDK clients — `DefaultAzureCredential`, managed identity, service principals.
+**When to use**: Debugging auth failures, credential chain issues, managed identity configuration for Key Vault or Azure OpenAI access.
 
-### azure-keyvault
-**Purpose**: Manage Key Vault secrets.
-**When to use**: Verifying `GITHUB_TOKEN` secret exists and is accessible by the managed identity.
+#### azure-keyvault-secrets-ts
+**Source**: `microsoft/skills`
+**Purpose**: Key Vault secrets management — store, retrieve, rotate secrets.
+**When to use**: Verifying `GITHUB_TOKEN` secret exists and is accessible, debugging Key Vault access errors.
 
-### azure-resource-visualizer
-**Purpose**: Generate architecture diagrams from resource groups.
-**When to use**: Visualizing the deployed architecture and resource relationships for incident context.
+#### azure-cosmos-ts
+**Source**: `microsoft/skills`
+**Purpose**: Cosmos DB SDK patterns (if adding persistence layer).
+**When to use**: If the service evolves to include a data store for conversation history or analytics.
+
+### Recommended Skills
+
+#### azure-monitor-opentelemetry-exporter-py
+**Source**: `microsoft/skills`
+**Purpose**: Low-level OpenTelemetry exporters for custom trace/metric/log pipelines to Application Insights.
+**When to use**: Building custom export pipelines or advanced sampling configurations.
+
+#### azure-mgmt-applicationinsights-dotnet
+**Source**: `microsoft/skills`
+**Purpose**: Application Insights resource management — components, web tests, workbooks.
+**When to use**: Creating availability tests, configuring alert rules, managing App Insights resources programmatically.
+
+### MCP Tools Reference
+
+In addition to skills, the following MCP tools are available in the Copilot CLI for live Azure operations:
+
+| Tool | Purpose |
+|---|---|
+| `azure-monitor` | Query Azure Monitor logs and metrics via KQL |
+| `azure-appservice` | Manage Container Apps, web apps, configurations |
+| `azure-keyvault` | Manage Key Vault secrets and access policies |
+| `azure-compute` | VM/VMSS management and monitoring |
+| `azure-acr` | Container Registry operations |
+| `azure-resourcehealth` | Check Azure resource availability status |
+| `azure-applens` | AI-powered diagnostics for Azure resource issues |
 
 ---
 

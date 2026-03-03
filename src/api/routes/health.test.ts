@@ -16,6 +16,7 @@ describe("GET /health", () => {
     expect(res.body.status).toEqual("ok");
     expect(res.body).toHaveProperty("uptime");
     expect(res.body).toHaveProperty("telemetry");
+    expect(res.body).toHaveProperty("store");
   });
 });
 

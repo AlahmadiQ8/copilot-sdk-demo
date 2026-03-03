@@ -17,6 +17,7 @@
     "test:deployed": "cd ../../tests/integration && pnpm test:deployed"
   },
   "dependencies": {
+    "@azure/cosmos": "^4.9.1",
     "@azure/identity": "^4.13.0",
     "@azure/monitor-opentelemetry": "^1.16.0",
     "@github/copilot-sdk": "0.1.25",

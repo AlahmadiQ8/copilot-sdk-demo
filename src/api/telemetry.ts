@@ -50,6 +50,28 @@ export const summarizeDurationHistogram = meter.createHistogram("summarize_durat
   unit: "ms",
 });
 
+// Conversation store metrics
+export const conversationsCreatedCounter = meter.createCounter("conversations_created_total", {
+  description: "Total conversations created",
+});
+
+export const conversationsDeletedCounter = meter.createCounter("conversations_deleted_total", {
+  description: "Total conversations deleted",
+});
+
+export const conversationMessagesCounter = meter.createCounter("conversation_messages_total", {
+  description: "Total messages added to conversations",
+});
+
+export const cosmosErrorCounter = meter.createCounter("cosmos_errors_total", {
+  description: "Total Cosmos DB operation errors",
+});
+
+export const cosmosDurationHistogram = meter.createHistogram("cosmos_duration_ms", {
+  description: "Duration of Cosmos DB operations in milliseconds",
+  unit: "ms",
+});
+
 // ---------------------------------------------------------------------------
 // Structured logger — emits to OpenTelemetry (→ App Insights traces table)
 // and to console (→ ContainerAppConsoleLogs_CL)

@@ -4,6 +4,7 @@ import cors from "cors";
 import healthRoutes from "./routes/health.js";
 import summarizeRoutes from "./routes/summarize.js";
 import chatRoutes from "./routes/chat.js";
+import conversationRoutes from "./routes/conversations.js";
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(healthRoutes);
 app.use(summarizeRoutes);
 app.use(chatRoutes);
+app.use(conversationRoutes);
 
 if (!process.env.GITHUB_TOKEN) {
   console.warn("⚠ GITHUB_TOKEN is not set. AI endpoints will not work.");
