@@ -13,6 +13,7 @@ export default defineConfig({
       '/summarize': 'http://localhost:3000',
       '/config': 'http://localhost:3000',
       '/health': 'http://localhost:3000',
+      '/conversations': 'http://localhost:3000',
     },
   },
 })
