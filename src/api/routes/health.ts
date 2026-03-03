@@ -1,9 +1,16 @@
 import { Router } from "express";
+import { getStoreStatus } from "../store.js";
 
 const router = Router();
+const startedAt = Date.now();
 
 router.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    uptime: Math.floor((Date.now() - startedAt) / 1000),
+    telemetry: !!process.env.APPLICATIONINSIGHTS_CONNECTION_STRING,
+    store: getStoreStatus(),
+  });
 });
 
 router.get("/config", (_req, res) => {

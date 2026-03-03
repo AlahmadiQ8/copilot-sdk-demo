@@ -7,8 +7,34 @@ export function useService() {
   const messagesRef = useRef<Message[]>([])
   const abortRef = useRef<AbortController | null>(null)
 
-  const sendMessage = useCallback(async (text: string) => {
-    // Abort any in-flight request
+  const loadMessages = useCallback(async (conversationId: string) => {
+    try {
+      const res = await fetch(`/conversations/${conversationId}`)
+      if (!res.ok) {
+        messagesRef.current = []
+        setMessages([])
+        return
+      }
+      const data = await res.json()
+      const loaded: Message[] = (data.messages || []).map((m: { role: string; content: string }, i: number) => ({
+        id: `${conversationId}-${i}`,
+        role: m.role as Message['role'],
+        content: m.content,
+      }))
+      messagesRef.current = loaded
+      setMessages(loaded)
+    } catch {
+      messagesRef.current = []
+      setMessages([])
+    }
+  }, [])
+
+  const clearMessages = useCallback(() => {
+    messagesRef.current = []
+    setMessages([])
+  }, [])
+
+  const sendMessage = useCallback(async (text: string, conversationId?: string | null) => {
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
@@ -21,18 +47,23 @@ export function useService() {
     setMessages([...messagesRef.current])
     setIsLoading(true)
 
-    // Build history from previous messages (exclude current)
-    const history = messagesRef.current
-      .filter(m => m.id !== assistantId && (m.role === 'user' || m.role === 'assistant'))
-      .map(m => ({ role: m.role, content: m.content }))
-    // Remove last entry (it's the current user message, we pass it as `message`)
-    history.pop()
+    // Determine endpoint: conversation API or direct /chat fallback
+    const url = conversationId ? `/conversations/${conversationId}/messages` : '/chat'
+    const body = conversationId
+      ? { message: text }
+      : (() => {
+          const history = messagesRef.current
+            .filter(m => m.id !== assistantId && (m.role === 'user' || m.role === 'assistant'))
+            .map(m => ({ role: m.role, content: m.content }))
+          history.pop()
+          return { message: text, history: history.length > 0 ? history : undefined }
+        })()
 
     try {
-      const res = await fetch('/chat', {
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history: history.length > 0 ? history : undefined }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       })
 
@@ -52,7 +83,6 @@ export function useService() {
 
           buffer += decoder.decode(value, { stream: true })
           const lines = buffer.split('\n')
-          // Keep the last (possibly incomplete) line in the buffer
           buffer = lines.pop() ?? ''
 
           for (const line of lines) {
@@ -80,13 +110,14 @@ export function useService() {
         }
       }
 
-      // If no content was streamed, set a fallback
       if (!content) {
         messagesRef.current = messagesRef.current.map(m =>
           m.id === assistantId ? { ...m, content: '(empty response)' } : m,
         )
         setMessages([...messagesRef.current])
       }
+
+      return text // return user message for title extraction
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return
       messagesRef.current = messagesRef.current.map(m =>
@@ -102,5 +133,5 @@ export function useService() {
     }
   }, [])
 
-  return { messages, isLoading, sendMessage }
+  return { messages, isLoading, sendMessage, loadMessages, clearMessages }
 }

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getClient } from "../client.js";
 import { getSessionOptions, enhanceModelError } from "../model-config.js";
+import { summarizeRequestCounter, summarizeErrorCounter, summarizeDurationHistogram, log } from "../telemetry.js";
 
 const router = Router();
 
@@ -10,6 +11,11 @@ interface SummarizeSession {
 }
 
 router.post("/summarize", async (req, res) => {
+  const startTime = Date.now();
+  const model = process.env.MODEL_NAME || "(default)";
+  const provider = process.env.MODEL_PROVIDER || "github";
+  const attrs = { model, provider };
+
   const { text } = req.body as { text?: unknown };
   if (text === undefined || text === null) {
     res.status(400).json({ error: "Missing 'text' field" });
@@ -24,6 +30,9 @@ router.post("/summarize", async (req, res) => {
     return;
   }
 
+  summarizeRequestCounter.add(1, attrs);
+  log("info", "Summarize request started", { route: "/summarize", textLength: text.length, ...attrs });
+
   let session: SummarizeSession | null = null;
   try {
     const copilot = await getClient();
@@ -36,9 +45,18 @@ router.post("/summarize", async (req, res) => {
     );
 
     const summary = (response?.data as { content?: string })?.content ?? "";
+    const durationMs = Date.now() - startTime;
+    summarizeDurationHistogram.record(durationMs, attrs);
+    log("info", "Summarize request completed", { route: "/summarize", durationMs, ...attrs });
+
     res.json({ summary });
   } catch (err) {
+    const durationMs = Date.now() - startTime;
     const enhanced = enhanceModelError(err);
+    summarizeErrorCounter.add(1, attrs);
+    summarizeDurationHistogram.record(durationMs, attrs);
+    log("error", "Summarize request failed", { route: "/summarize", durationMs, error: enhanced.message, ...attrs });
+
     res.status(500).json({ error: enhanced.message });
   } finally {
     await session?.destroy();

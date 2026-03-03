@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { getClient } from "../client.js";
 import { getSessionOptions, enhanceModelError } from "../model-config.js";
+import { chatRequestCounter, chatErrorCounter, chatDurationHistogram, log } from "../telemetry.js";
 
 const router = Router();
 
@@ -49,6 +50,11 @@ function isValidHistoryItem(item: unknown): item is { role: string; content: str
 }
 
 router.post("/chat", async (req, res) => {
+  const startTime = Date.now();
+  const model = process.env.MODEL_NAME || "(default)";
+  const provider = process.env.MODEL_PROVIDER || "github";
+  const attrs = { model, provider };
+
   const { message, history } = req.body as {
     message?: unknown;
     history?: unknown;
@@ -70,6 +76,9 @@ router.post("/chat", async (req, res) => {
     res.status(400).json({ error: "Each history item must have 'role' ('user'|'assistant') and 'content' strings" });
     return;
   }
+
+  chatRequestCounter.add(1, attrs);
+  log("info", "Chat request started", { route: "/chat", historyLength: Array.isArray(history) ? history.length : 0, ...attrs });
 
   // Build prompt before flushing SSE headers so validation errors return JSON 400
   const prompt = Array.isArray(history) && history.length > 0
@@ -100,12 +109,21 @@ router.post("/chat", async (req, res) => {
     await session.send({ prompt });
     await waitForIdle(session);
 
+    const durationMs = Date.now() - startTime;
+    chatDurationHistogram.record(durationMs, attrs);
+    log("info", "Chat request completed", { route: "/chat", durationMs, ...attrs });
+
     if (!res.socket?.destroyed) {
       res.write(`data: [DONE]\n\n`);
     }
     res.end();
   } catch (err) {
+    const durationMs = Date.now() - startTime;
     const enhanced = enhanceModelError(err);
+    chatErrorCounter.add(1, attrs);
+    chatDurationHistogram.record(durationMs, attrs);
+    log("error", "Chat request failed", { route: "/chat", durationMs, error: enhanced.message, ...attrs });
+
     if (!res.socket?.destroyed) {
       res.write(`event: error\ndata: ${JSON.stringify({ error: enhanced.message })}\n\n`);
     }
