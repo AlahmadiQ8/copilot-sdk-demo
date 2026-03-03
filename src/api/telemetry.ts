@@ -51,17 +51,32 @@ export const summarizeDurationHistogram = meter.createHistogram("summarize_durat
 });
 
 // ---------------------------------------------------------------------------
-// Structured logger
+// Structured logger — emits to OpenTelemetry (→ App Insights traces table)
+// and to console (→ ContainerAppConsoleLogs_CL)
 // ---------------------------------------------------------------------------
+import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+
+const otelLogger = logs.getLogger("copilot-sdk-api");
+
+const SEVERITY: Record<string, SeverityNumber> = {
+  info: SeverityNumber.INFO,
+  warn: SeverityNumber.WARN,
+  error: SeverityNumber.ERROR,
+};
+
 export type LogLevel = "info" | "warn" | "error";
 
 export function log(level: LogLevel, message: string, attributes?: Record<string, unknown>) {
-  const entry = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    ...attributes,
-  };
+  // Emit to OpenTelemetry → traces table in App Insights
+  otelLogger.emit({
+    severityNumber: SEVERITY[level],
+    severityText: level.toUpperCase(),
+    body: message,
+    attributes: attributes as Record<string, string | number | boolean>,
+  });
+
+  // Also emit to console → ContainerAppConsoleLogs_CL
+  const entry = { timestamp: new Date().toISOString(), level, message, ...attributes };
   const fn = level === "error" ? console.error : level === "warn" ? console.warn : console.log;
   fn(JSON.stringify(entry));
 }
