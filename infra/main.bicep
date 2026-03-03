@@ -65,3 +65,4 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = resources.outputs.registryLogi
 output AZURE_CONTAINER_REGISTRY_NAME string = resources.outputs.registryName
 output AZURE_MODEL_NAME string = useAzureModel ? azureModelName : ''
 output AZURE_OPENAI_ENDPOINT string = useAzureModel ? resources.outputs.azureOpenAiEndpoint : ''
+output AZURE_COSMOS_ENDPOINT string = resources.outputs.cosmosEndpoint

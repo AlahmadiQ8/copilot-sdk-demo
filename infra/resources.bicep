@@ -164,6 +164,82 @@ resource openaiRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-0
 }
 
 // ===================== //
+// Azure Cosmos DB (Serverless, NoSQL — conversation store)
+// ===================== //
+
+resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-11-15' = {
+  name: 'cosmos-${environmentName}-${resourceSuffix}'
+  location: location
+  tags: tags
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    locations: [
+      {
+        locationName: location
+        failoverPriority: 0
+        isZoneRedundant: false
+      }
+    ]
+    consistencyPolicy: {
+      defaultConsistencyLevel: 'Session'
+    }
+    capabilities: [
+      {
+        name: 'EnableServerless'
+      }
+    ]
+    disableLocalAuth: true
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024-11-15' = {
+  parent: cosmosAccount
+  name: 'conversations'
+  properties: {
+    resource: {
+      id: 'conversations'
+    }
+  }
+}
+
+resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-11-15' = {
+  parent: cosmosDatabase
+  name: 'messages'
+  properties: {
+    resource: {
+      id: 'messages'
+      partitionKey: {
+        paths: ['/conversationId']
+        kind: 'Hash'
+      }
+      indexingPolicy: {
+        indexingMode: 'consistent'
+        includedPaths: [
+          { path: '/*' }
+        ]
+        excludedPaths: [
+          { path: '/"_etag"/?' }
+        ]
+      }
+      defaultTtl: 86400 // 24 hours — auto-expire old conversations
+    }
+  }
+}
+
+// Cosmos DB Built-in Data Contributor role for the managed identity
+resource cosmosRoleAssignment 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2024-11-15' = {
+  parent: cosmosAccount
+  name: guid(resourceGroup().id, 'cosmos-data-contributor', 'id-${environmentName}-${resourceSuffix}')
+  properties: {
+    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002'
+    principalId: managedIdentity.outputs.principalId
+    scope: cosmosAccount.id
+  }
+}
+
+// ===================== //
 // AZD Pattern: ACR Container App - API (internal, accessed through web)
 // ===================== //
 
@@ -195,12 +271,14 @@ module containerAppApi 'br/public:avm/ptn/azd/acr-container-app:0.4.0' = {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: monitoring.outputs.applicationInsightsConnectionString
         }
+        { name: 'COSMOS_ENDPOINT', value: cosmosAccount.properties.documentEndpoint }
+        { name: 'COSMOS_DATABASE', value: 'conversations' }
+        { name: 'AZURE_CLIENT_ID', value: managedIdentity.outputs.clientId }
       ],
       useAzureModel ? [
         { name: 'MODEL_PROVIDER', value: 'azure' }
         { name: 'MODEL_NAME', value: azureModelName }
         { name: 'AZURE_OPENAI_ENDPOINT', value: openai!.properties.endpoint }
-        { name: 'AZURE_CLIENT_ID', value: managedIdentity.outputs.clientId }
       ] : []
     )
     secrets: [
@@ -251,3 +329,4 @@ output webContainerAppUrl string = containerAppWeb.outputs.uri
 output registryLoginServer string = containerAppsStack.outputs.registryLoginServer
 output registryName string = containerAppsStack.outputs.registryName
 output azureOpenAiEndpoint string = useAzureModel ? openai!.properties.endpoint : ''
+output cosmosEndpoint string = cosmosAccount.properties.documentEndpoint
