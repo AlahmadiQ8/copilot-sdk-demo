@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "azure-cosmos-ts": {
+      "source": "microsoft/skills",
+      "sourceType": "github",
+      "computedHash": "48028c4818e7681b705a14895737719a74fd9d690279a9d4b05f60e27cce0f16"
+    },
     "azure-monitor-opentelemetry-ts": {
       "source": "microsoft/skills",
       "sourceType": "github",
