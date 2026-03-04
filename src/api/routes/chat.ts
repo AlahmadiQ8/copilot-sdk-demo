@@ -81,8 +81,11 @@ router.post("/chat", async (req, res) => {
   log("info", "Chat request started", { route: "/chat", historyLength: Array.isArray(history) ? history.length : 0, ...attrs });
 
   // Build prompt before flushing SSE headers so validation errors return JSON 400
-  const prompt = Array.isArray(history) && history.length > 0
-    ? [...history.map((h) => `${h.role}: ${h.content}`), `user: ${message}`].join("\n")
+  // Truncate history to prevent prompt size from growing unboundedly (default 10 messages).
+  const maxHistoryMessages = parseInt(process.env.MAX_HISTORY_MESSAGES || "10", 10);
+  const trimmedHistory = Array.isArray(history) ? history.slice(-maxHistoryMessages) : [];
+  const prompt = trimmedHistory.length > 0
+    ? [...trimmedHistory.map((h) => `${h.role}: ${h.content}`), `user: ${message}`].join("\n")
     : message;
 
   res.setHeader("Content-Type", "text/event-stream");

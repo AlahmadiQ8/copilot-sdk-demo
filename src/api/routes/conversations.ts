@@ -131,8 +131,18 @@ router.post("/conversations/:id/messages", async (req, res) => {
     conversationMessagesCounter.add(1, { role: "user" });
     chatRequestCounter.add(1, attrs);
 
-    // Build prompt from full conversation history
-    const prompt = updated.messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+    // Truncate conversation history to prevent prompt size from growing unboundedly.
+    // Keep the most recent messages (configurable via MAX_HISTORY_MESSAGES env var, default 10).
+    const maxHistoryMessages = parseInt(process.env.MAX_HISTORY_MESSAGES || "10", 10);
+    const recentMessages = updated.messages.slice(-maxHistoryMessages);
+    const prompt = recentMessages.map((m) => `${m.role}: ${m.content}`).join("\n");
+    log("info", "Conversation prompt built", {
+      conversationId,
+      totalMessages: updated.messages.length,
+      usedMessages: recentMessages.length,
+      promptLength: prompt.length,
+      ...attrs,
+    });
 
     // SSE streaming response
     res.setHeader("Content-Type", "text/event-stream");
