@@ -5,7 +5,11 @@ function fail(message) {
   process.exit(1);
 }
 
-// 0. Skip if COPILOT_GITHUB_TOKEN is already set in azd environment
+// 0. Skip if COPILOT_GITHUB_TOKEN is already available (process env or azd env)
+if (process.env.COPILOT_GITHUB_TOKEN) {
+  console.log("✓ COPILOT_GITHUB_TOKEN already set in environment.");
+  process.exit(0);
+}
 try {
   const existing = execSync("azd env get-value COPILOT_GITHUB_TOKEN", {
     encoding: "utf-8",
