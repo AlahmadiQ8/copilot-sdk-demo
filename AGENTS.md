@@ -21,7 +21,7 @@ Copilot SDK service template — API + web UI deployed to Azure Container Apps.
 | `src/web/components/ChatWindow.tsx` | Message display with markdown rendering |
 | `infra/main.bicep` | Bicep orchestration — includes optional BYOM resources |
 | `infra/resources.bicep` | Azure resources (Container Apps, ACR, Key Vault, optional OpenAI) |
-| `scripts/get-github-token.mjs` | azd hook — injects GITHUB_TOKEN from `gh auth token` |
+| `scripts/get-github-token.mjs` | azd hook — injects COPILOT_GITHUB_TOKEN from `gh auth token` |
 
 ## Model Configuration
 
@@ -38,7 +38,7 @@ Default: no env vars set → SDK picks default GitHub model.
 ## Environment
 
 - Node ≥ 24, pnpm for package management. **Always use `pnpm`, never `npm` or `yarn`.**
-- `gh` CLI required for provisioning (provides `GITHUB_TOKEN` via `scripts/get-github-token.mjs`).
+- `gh` CLI required for provisioning (provides `COPILOT_GITHUB_TOKEN` via `scripts/get-github-token.mjs`).
 
 ## Commands
 
@@ -61,5 +61,5 @@ Default: no env vars set → SDK picks default GitHub model.
 
 ## Safety
 
-- Never commit secrets. `GITHUB_TOKEN` is injected at deploy time via Key Vault.
+- Never commit secrets. `COPILOT_GITHUB_TOKEN` is injected at deploy time via Key Vault.
 - Dockerfile runs as non-root user (`app`).

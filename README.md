@@ -39,7 +39,7 @@ The following prerequisites are required to use this application. Please ensure 
 | [Azure Developer CLI (`azd`)](https://aka.ms/azd-install) | Latest | Provisions and deploys Azure resources |
 | [Node.js](https://nodejs.org/) | 24+ | Runtime for the API and build tooling |
 | [pnpm](https://pnpm.io/) | 10+ | Fast, disk-efficient package manager |
-| [GitHub CLI (`gh`)](https://cli.github.com/) | Latest | Provides the `GITHUB_TOKEN` for the Copilot SDK |
+| [GitHub CLI (`gh`)](https://cli.github.com/) | Latest | Provides the `COPILOT_GITHUB_TOKEN` for the Copilot SDK |
 | [Docker](https://docs.docker.com/get-docker/) | Latest | Required for Azure deployment (container builds) |
 
 **GitHub CLI setup:**
@@ -72,7 +72,7 @@ This application utilizes the following Azure resources:
 
 - [**Azure Container Apps**](https://docs.microsoft.com/azure/container-apps/) to host the API backend and web frontend
 - [**Azure Container Registry**](https://docs.microsoft.com/azure/container-registry/) for Docker image storage
-- [**Azure Key Vault**](https://docs.microsoft.com/azure/key-vault/) for securing the `GITHUB_TOKEN`
+- [**Azure Key Vault**](https://docs.microsoft.com/azure/key-vault/) for securing the `COPILOT_GITHUB_TOKEN`
 - [**Azure Monitor**](https://docs.microsoft.com/azure/azure-monitor/) for monitoring and logging
 - [**Azure OpenAI**](https://docs.microsoft.com/azure/ai-services/openai/) *(optional)* for Bring Your Own Model (BYOM)
 
@@ -135,7 +135,7 @@ No environment variables required — the SDK picks its default model:
 azd app run
 
 # Option B: manual
-export GITHUB_TOKEN=$(gh auth token)
+export COPILOT_GITHUB_TOKEN=$(gh auth token)
 cd src/api && pnpm dev
 ```
 
@@ -149,7 +149,7 @@ azd env set MODEL_NAME gpt-4o
 azd app run
 
 # Option B: manual
-export GITHUB_TOKEN=$(gh auth token)
+export COPILOT_GITHUB_TOKEN=$(gh auth token)
 export MODEL_NAME=gpt-4o
 cd src/api && pnpm dev
 ```
@@ -167,7 +167,7 @@ azd env set AZURE_OPENAI_ENDPOINT https://<your-resource>.openai.azure.com
 azd app run
 
 # Option B: manual
-export GITHUB_TOKEN=$(gh auth token)
+export COPILOT_GITHUB_TOKEN=$(gh auth token)
 export MODEL_PROVIDER=azure
 export MODEL_NAME=<your-deployment-name>
 export AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
@@ -196,14 +196,14 @@ azd extension install jongio.azd.app
 azd app run
 ```
 
-The `prerun` hook automatically retrieves your `GITHUB_TOKEN` from the `gh` CLI via `scripts/get-github-token.mjs`. Open the URL shown in the dashboard output to start testing.
+The `prerun` hook automatically retrieves your `COPILOT_GITHUB_TOKEN` from the `gh` CLI via `scripts/get-github-token.mjs`. Open the URL shown in the dashboard output to start testing.
 
 <details>
 <summary><b>Run services manually (without azd app)</b></summary>
 
 ```bash
 # Set your GitHub token
-export GITHUB_TOKEN=$(gh auth token)
+export COPILOT_GITHUB_TOKEN=$(gh auth token)
 
 # Install dependencies
 cd src/api && pnpm install && cd ../web && pnpm install && cd ../..
@@ -239,7 +239,7 @@ import { CopilotClient } from "@github/copilot-sdk";
 const router = Router();
 
 router.post("/classify", async (req, res) => {
-  const client = new CopilotClient({ githubToken: process.env.GITHUB_TOKEN });
+  const client = new CopilotClient({ githubToken: process.env.COPILOT_GITHUB_TOKEN });
   const { getSessionOptions } = await import("../model-config.js");
   const options = await getSessionOptions();
   const session = await client.createSession(options);
@@ -290,12 +290,12 @@ cd src/api && pnpm test:models
 - ✅ Azure BYOM (auto-skipped if not configured)
 
 **Prerequisites:**
-- `GITHUB_TOKEN` — required for all tests (auto-resolved from `gh auth token` if not set)
+- `COPILOT_GITHUB_TOKEN` — required for all tests (auto-resolved from `gh auth token` if not set)
 - `AZURE_MODEL_NAME` and `AZURE_OPENAI_ENDPOINT` — optional, for Azure BYOM tests
 
 **Local usage:** When running locally without Azure env vars, an interactive prompt offers to load values from `azd` environments or run `azd up`. To skip Azure tests, just don't set the Azure env vars.
 
-**CI usage:** Set env vars (`GITHUB_TOKEN`, `AZURE_OPENAI_ENDPOINT`, `AZURE_MODEL_NAME`, `CI=true`) and run — no interactive prompts.
+**CI usage:** Set env vars (`COPILOT_GITHUB_TOKEN`, `AZURE_OPENAI_ENDPOINT`, `AZURE_MODEL_NAME`, `CI=true`) and run — no interactive prompts.
 
 See [`scripts/README.md`](scripts/README.md) for detailed setup instructions.
 
@@ -307,10 +307,10 @@ azd up
 
 This single command handles the entire deployment pipeline:
 
-1. **Preprovision hook** — Retrieves your `GITHUB_TOKEN` from the `gh` CLI and stores it in the `azd` environment
+1. **Preprovision hook** — Retrieves your `COPILOT_GITHUB_TOKEN` from the `gh` CLI and stores it in the `azd` environment
 2. **Provisions infrastructure** — Creates Azure Container Registry, Container Apps Environment, Key Vault, Application Insights, and a managed identity (using [Azure Verified Modules](https://azure.github.io/Azure-Verified-Modules/))
 3. **Builds and pushes** — Builds the Docker images and pushes them to the provisioned ACR
-4. **Deploys** — Deploys both containers to Azure Container Apps with the `GITHUB_TOKEN` securely referenced from Key Vault
+4. **Deploys** — Deploys both containers to Azure Container Apps with the `COPILOT_GITHUB_TOKEN` securely referenced from Key Vault
 
 ### Verify Deployed App
 
@@ -343,7 +343,7 @@ This template creates a [managed identity](https://docs.microsoft.com/azure/acti
 
 ### Key Vault
 
-This template uses [Azure Key Vault](https://docs.microsoft.com/azure/key-vault/general/overview) to securely store your `GITHUB_TOKEN` for the provisioned Copilot SDK service. Key Vault is a cloud service for securely storing and accessing secrets (API keys, passwords, certificates, cryptographic keys) and makes it simple to give other Azure services access to them. As you continue developing your solution, you may add as many secrets to your Key Vault as you require.
+This template uses [Azure Key Vault](https://docs.microsoft.com/azure/key-vault/general/overview) to securely store your `COPILOT_GITHUB_TOKEN` for the provisioned Copilot SDK service. Key Vault is a cloud service for securely storing and accessing secrets (API keys, passwords, certificates, cryptographic keys) and makes it simple to give other Azure services access to them. As you continue developing your solution, you may add as many secrets to your Key Vault as you require.
 
 ## Reporting Issues and Feedback
 

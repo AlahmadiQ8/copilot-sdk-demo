@@ -71,7 +71,7 @@ module managedIdentity 'br/public:avm/res/managed-identity/user-assigned-identit
 }
 
 // ===================== //
-// AVM Resource: Key Vault (stores GITHUB_TOKEN)
+// AVM Resource: Key Vault (stores COPILOT_GITHUB_TOKEN)
 // ===================== //
 
 module keyVault 'br/public:avm/res/key-vault/vault:0.13.3' = {
@@ -269,7 +269,7 @@ module containerAppApi 'br/public:avm/ptn/azd/acr-container-app:0.4.0' = {
       [
         { name: 'PORT', value: '3000' }
         { name: 'ALLOWED_ORIGINS', value: 'https://ca-web-${environmentName}-${resourceSuffix}.${containerAppsStack.outputs.defaultDomain}' }
-        { name: 'GITHUB_TOKEN', secretRef: 'github-token' }
+        { name: 'COPILOT_GITHUB_TOKEN', secretRef: 'github-token' }
         {
           name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
           value: monitoring.outputs.applicationInsightsConnectionString

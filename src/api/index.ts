@@ -24,8 +24,8 @@ app.use(summarizeRoutes);
 app.use(chatRoutes);
 app.use(conversationRoutes);
 
-if (!process.env.GITHUB_TOKEN) {
-  console.warn("⚠ GITHUB_TOKEN is not set. AI endpoints will not work.");
+if (!process.env.COPILOT_GITHUB_TOKEN) {
+  console.warn("⚠ COPILOT_GITHUB_TOKEN is not set. AI endpoints will not work.");
 }
 
 const PORT = process.env.PORT || 3000;

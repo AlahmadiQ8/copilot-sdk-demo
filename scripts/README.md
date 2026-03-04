@@ -35,7 +35,7 @@ export AZURE_CONTAINER_APP_WEB_URL=$(azd env get-value AZURE_CONTAINER_APP_WEB_U
 
 Set the required environment variables and run — there are no interactive prompts in CI:
 ```bash
-export GITHUB_TOKEN=<token>
+export COPILOT_GITHUB_TOKEN=<token>
 export AZURE_OPENAI_ENDPOINT=<endpoint-url>
 export AZURE_MODEL_NAME=<deployment-name>
 cd tests/integration && pnpm install && pnpm test

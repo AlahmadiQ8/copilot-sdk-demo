@@ -5,14 +5,14 @@ function fail(message) {
   process.exit(1);
 }
 
-// 0. Skip if GITHUB_TOKEN is already set in azd environment
+// 0. Skip if COPILOT_GITHUB_TOKEN is already set in azd environment
 try {
-  const existing = execSync("azd env get-value GITHUB_TOKEN", {
+  const existing = execSync("azd env get-value COPILOT_GITHUB_TOKEN", {
     encoding: "utf-8",
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
   if (existing) {
-    console.log("✓ GITHUB_TOKEN already set in azd environment.");
+    console.log("✓ COPILOT_GITHUB_TOKEN already set in azd environment.");
     process.exit(0);
   }
 } catch {
@@ -64,11 +64,11 @@ try {
 // Token is passed via env var to avoid exposing it in process argument lists
 const isWindows = process.platform === "win32";
 const cmd = isWindows
-  ? `azd env set GITHUB_TOKEN %__GH_TOKEN%`
-  : `azd env set GITHUB_TOKEN "$__GH_TOKEN"`;
+  ? `azd env set COPILOT_GITHUB_TOKEN %__GH_TOKEN%`
+  : `azd env set COPILOT_GITHUB_TOKEN "$__GH_TOKEN"`;
 execSync(cmd, {
   env: { ...process.env, __GH_TOKEN: token },
   stdio: "inherit",
   shell: true,
 });
-console.log("✓ GITHUB_TOKEN set from gh CLI.");
+console.log("✓ COPILOT_GITHUB_TOKEN set from gh CLI.");

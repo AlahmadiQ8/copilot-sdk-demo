@@ -18,7 +18,7 @@ describe("getClient", () => {
   });
 
   it("returns a client instance with correct token", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "test-token");
+    vi.stubEnv("COPILOT_GITHUB_TOKEN", "test-token");
     const { getClient } = await import("./client.js");
     const client = await getClient();
     expect(client).toBeDefined();
@@ -26,7 +26,7 @@ describe("getClient", () => {
   });
 
   it("returns the same instance on subsequent calls (singleton)", async () => {
-    vi.stubEnv("GITHUB_TOKEN", "test-token");
+    vi.stubEnv("COPILOT_GITHUB_TOKEN", "test-token");
     const { getClient } = await import("./client.js");
     const client1 = await getClient();
     const client2 = await getClient();

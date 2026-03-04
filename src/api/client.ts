@@ -6,7 +6,7 @@ let client: CopilotClient | null = null;
 export async function getClient(): Promise<CopilotClient> {
   if (!client) {
     client = new CopilotClient({
-      githubToken: process.env.GITHUB_TOKEN,
+      githubToken: process.env.COPILOT_GITHUB_TOKEN,
     });
   }
   return client;

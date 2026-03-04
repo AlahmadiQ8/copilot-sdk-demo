@@ -1,7 +1,7 @@
 /**
  * Vitest globalSetup — resolves environment variables once before all test files run.
  *
- * - GITHUB_TOKEN: required for all tests (resolved from env or `gh auth token`)
+ * - COPILOT_GITHUB_TOKEN: required for all tests (resolved from env or `gh auth token`)
  * - AZURE_OPENAI_ENDPOINT / AZURE_MODEL_NAME: auto-loaded from the default azd
  *   environment. Falls back to interactive prompt only when auto-load fails and
  *   a TTY is available.
@@ -53,11 +53,11 @@ function checkPrerequisites(): CliStatus {
   return { gh, az, azd };
 }
 
-// ── GITHUB_TOKEN resolution ──────────────────────────────────────────
+// ── COPILOT_GITHUB_TOKEN resolution ──────────────────────────────────────────
 
 function resolveGitHubToken(): void {
-  if (process.env.GITHUB_TOKEN) {
-    console.log("  ✓ GITHUB_TOKEN already set");
+  if (process.env.COPILOT_GITHUB_TOKEN) {
+    console.log("  ✓ COPILOT_GITHUB_TOKEN already set");
     return;
   }
 
@@ -67,17 +67,17 @@ function resolveGitHubToken(): void {
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
     if (token) {
-      process.env.GITHUB_TOKEN = token;
-      console.log("  ✓ GITHUB_TOKEN resolved from gh CLI");
+      process.env.COPILOT_GITHUB_TOKEN = token;
+      console.log("  ✓ COPILOT_GITHUB_TOKEN resolved from gh CLI");
       return;
     }
   } catch {
     // gh not installed or not authenticated
   }
 
-  console.error("❌ GITHUB_TOKEN could not be resolved.");
-  console.error("   Set GITHUB_TOKEN or run: gh auth login");
-  throw new Error("GITHUB_TOKEN is required to run integration tests");
+  console.error("❌ COPILOT_GITHUB_TOKEN could not be resolved.");
+  console.error("   Set COPILOT_GITHUB_TOKEN or run: gh auth login");
+  throw new Error("COPILOT_GITHUB_TOKEN is required to run integration tests");
 }
 
 // ── azd environment helpers ──────────────────────────────────────────
@@ -269,7 +269,7 @@ export async function setup(): Promise<void> {
   // 1. Check CLI prerequisites
   const cli = checkPrerequisites();
 
-  // 2. Resolve GITHUB_TOKEN (required — throws on failure)
+  // 2. Resolve COPILOT_GITHUB_TOKEN (required — throws on failure)
   resolveGitHubToken();
 
   // 3. Resolve Azure environment: auto-load from default azd env, prompt only as fallback
@@ -283,7 +283,7 @@ export async function setup(): Promise<void> {
   // 4. Log final environment state
   const hasAzure = !!(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_MODEL_NAME);
   console.log("\nEnvironment summary:");
-  console.log(`  GITHUB_TOKEN:          ${process.env.GITHUB_TOKEN ? "set" : "MISSING"}`);
+  console.log(`  COPILOT_GITHUB_TOKEN:          ${process.env.COPILOT_GITHUB_TOKEN ? "set" : "MISSING"}`);
   console.log(`  AZURE_OPENAI_ENDPOINT: ${process.env.AZURE_OPENAI_ENDPOINT || "(not set — Azure tests will be skipped)"}`);
   console.log(`  AZURE_MODEL_NAME:      ${process.env.AZURE_MODEL_NAME || "(not set)"}`);
   console.log(`  CI:                    ${process.env.CI || "(not set)"}`);

@@ -12,7 +12,7 @@ This is a two-container app deployed on Azure Container Apps:
 | **Container Registry** | `acr{shortname}{suffix}` | Docker image storage |
 | **Application Insights** | `ai-{env}-{suffix}` | APM, request tracing, custom metrics, structured logs |
 | **Log Analytics Workspace** | `law-{env}-{suffix}` | Backing store for App Insights, KQL query engine |
-| **Key Vault** | `kv-{shortname}-{suffix}` | Stores `GITHUB_TOKEN` secret |
+| **Key Vault** | `kv-{shortname}-{suffix}` | Stores `COPILOT_GITHUB_TOKEN` secret |
 | **Managed Identity** | `id-{env}-{suffix}` | RBAC access to Key Vault, Cosmos DB, and optional Azure OpenAI |
 | **Cosmos DB (NoSQL)** | `cosmos-{env}-{suffix}` | Conversation store — `messages` container, partition key `/conversationId`, 24h TTL |
 | **Azure OpenAI** *(optional)* | `oai-{env}-{suffix}` | BYOM endpoint (only when `useAzureModel=true`) |
@@ -362,7 +362,7 @@ AppTraces
 ```
 
 **Possible causes**:
-- `GITHUB_TOKEN` expired or missing — check Key Vault secret
+- `COPILOT_GITHUB_TOKEN` expired or missing — check Key Vault secret
 - Model not supported (encrypted content error) — check `MODEL_NAME`
 - Azure BYOM credential failure — check managed identity role assignment
 
@@ -521,7 +521,7 @@ The SRE Agent should have the following skills installed from [`microsoft/skills
 #### azure-keyvault-secrets-ts
 **Source**: `microsoft/skills`
 **Purpose**: Key Vault secrets management — store, retrieve, rotate secrets.
-**When to use**: Verifying `GITHUB_TOKEN` secret exists and is accessible, debugging Key Vault access errors.
+**When to use**: Verifying `COPILOT_GITHUB_TOKEN` secret exists and is accessible, debugging Key Vault access errors.
 
 #### azure-cosmos-ts
 **Source**: `microsoft/skills`
