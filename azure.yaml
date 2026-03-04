@@ -7,10 +7,10 @@ hooks:
   preprovision:
     windows:
       shell: pwsh
-      run: node scripts/get-github-token.mjs
+      run: node scripts/get-github-token.mjs && node scripts/set-grafana-admin.mjs
     posix:
       shell: sh
-      run: node scripts/get-github-token.mjs
+      run: node scripts/get-github-token.mjs && node scripts/set-grafana-admin.mjs
   prerun:
     windows:
       shell: pwsh

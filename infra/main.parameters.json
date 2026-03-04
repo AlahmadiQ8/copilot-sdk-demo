@@ -6,6 +6,7 @@
     "useAzureModel": { "value": "${USE_AZURE_MODEL=false}" },
     "azureModelName": { "value": "${AZURE_MODEL_NAME=o4-mini}" },
     "azureModelVersion": { "value": "${AZURE_MODEL_VERSION=2025-04-16}" },
-    "alertEmail": { "value": "${ALERT_EMAIL=momohammad@microsoft.com}" }
+    "alertEmail": { "value": "${ALERT_EMAIL=momohammad@microsoft.com}" },
+    "grafanaAdminPrincipalId": { "value": "${AZURE_GRAFANA_ADMIN_PRINCIPAL_ID=}" }
   }
 }

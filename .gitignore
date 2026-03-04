@@ -6,4 +6,4 @@ coverage/
 *.log
 infra/main.json
 .azure
-# .claude
+.claude

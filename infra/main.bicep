@@ -36,6 +36,9 @@ param azureModelVersion string = '2025-04-16'
 @description('Email address for Azure Monitor alert notifications. Leave empty to disable.')
 param alertEmail string = ''
 
+@description('Principal ID (object ID) of the user to assign Grafana Admin. Leave empty to skip.')
+param grafanaAdminPrincipalId string = ''
+
 var tags = { 'azd-env-name': environmentName }
 var resourceSuffix = take(uniqueString(subscription().id, environmentName), 6)
 var shortName = take(replace(environmentName, '-', ''), 10)
@@ -60,6 +63,7 @@ module resources './resources.bicep' = {
     azureModelName: azureModelName
     azureModelVersion: azureModelVersion
     alertEmail: alertEmail
+    grafanaAdminPrincipalId: grafanaAdminPrincipalId
   }
 }
 
@@ -70,3 +74,4 @@ output AZURE_CONTAINER_REGISTRY_NAME string = resources.outputs.registryName
 output AZURE_MODEL_NAME string = useAzureModel ? azureModelName : ''
 output AZURE_OPENAI_ENDPOINT string = useAzureModel ? resources.outputs.azureOpenAiEndpoint : ''
 output AZURE_COSMOS_ENDPOINT string = resources.outputs.cosmosEndpoint
+output AZURE_GRAFANA_ENDPOINT string = resources.outputs.grafanaEndpoint
