@@ -13,6 +13,9 @@ param tags object = {}
 @description('GitHub token for Copilot SDK')
 param githubToken string = ''
 
+@description('Email address to receive Azure Monitor alert notifications. Leave empty to disable.')
+param alertEmail string = ''
+
 @description('Unique suffix for resource names')
 param resourceSuffix string
 
@@ -317,6 +320,168 @@ module containerAppWeb 'br/public:avm/ptn/azd/acr-container-app:0.4.0' = {
     env: [
       { name: 'API_URL', value: 'http://${containerAppApi.outputs.name}.internal.${containerAppsStack.outputs.defaultDomain}' }
     ]
+  }
+}
+
+// ===================== //
+// Azure Monitor: Action Group + Alert Rules
+// ===================== //
+
+// Scheduled query rules must be scoped to the Log Analytics workspace — AppRequests /
+// AppTraces / AppTraces are workspace tables, not App Insights-native resources.
+var logAnalyticsWorkspaceId = resourceId('Microsoft.OperationalInsights/workspaces', monitoring.outputs.logAnalyticsWorkspaceName)
+
+resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-${environmentName}-${resourceSuffix}'
+  location: 'global'
+  tags: tags
+  properties: {
+    groupShortName: take('ag-${shortName}', 12)
+    enabled: true
+    emailReceivers: alertEmail != '' ? [
+      {
+        name: 'primary'
+        emailAddress: alertEmail
+        useCommonAlertSchema: true
+      }
+    ] : []
+  }
+}
+
+// Alert: more than 5 HTTP 5xx errors in any 5-minute window
+resource alertHighErrorRate 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = {
+  name: 'alert-http-errors-${resourceSuffix}'
+  location: location
+  tags: tags
+  properties: {
+    displayName: 'High HTTP Error Rate'
+    description: 'More than 5 HTTP 5xx responses in a 5-minute window'
+    severity: 2
+    enabled: true
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    scopes: [logAnalyticsWorkspaceId]
+    criteria: {
+      allOf: [
+        {
+          query: 'AppRequests | where toint(ResultCode) >= 500'
+          timeAggregation: 'Count'
+          threshold: 5
+          operator: 'GreaterThan'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+    autoMitigate: true
+  }
+}
+
+// Alert: any individual /conversations/:id/messages request taking longer than 30s
+resource alertHighLatency 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = {
+  name: 'alert-high-latency-${resourceSuffix}'
+  location: location
+  tags: tags
+  properties: {
+    displayName: 'High Chat Latency (> 30s)'
+    description: 'A /conversations/:id/messages request exceeded 30 seconds'
+    severity: 2
+    enabled: true
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    scopes: [logAnalyticsWorkspaceId]
+    criteria: {
+      allOf: [
+        {
+          query: 'AppRequests | where Name contains "/messages" | where DurationMs > 5000'
+          timeAggregation: 'Count'
+          threshold: 0
+          operator: 'GreaterThan'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+    autoMitigate: true
+  }
+}
+
+// Alert: more than 3 Cosmos DB / conversation-store errors in 5 minutes
+resource alertCosmosErrors 'Microsoft.Insights/scheduledQueryRules@2022-06-15' = {
+  name: 'alert-cosmos-errors-${resourceSuffix}'
+  location: location
+  tags: tags
+  properties: {
+    displayName: 'Cosmos DB Operation Failures'
+    description: 'More than 3 conversation-store error log entries in a 5-minute window'
+    severity: 1
+    enabled: true
+    evaluationFrequency: 'PT5M'
+    windowSize: 'PT5M'
+    scopes: [logAnalyticsWorkspaceId]
+    criteria: {
+      allOf: [
+        {
+          query: 'AppTraces | where SeverityLevel >= 3 | where Message has_any ("Failed to create conversation", "Failed to list conversations", "Failed to get conversation", "Failed to delete conversation", "Conversation message store error")'
+          timeAggregation: 'Count'
+          threshold: 1
+          operator: 'GreaterThan'
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
+        }
+      ]
+    }
+    actions: {
+      actionGroups: [actionGroup.id]
+    }
+    autoMitigate: true
+  }
+}
+
+// Alert: API container restarted more than twice in 5 minutes
+resource alertContainerRestart 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+  name: 'alert-container-restart-${resourceSuffix}'
+  location: 'global'
+  tags: tags
+  properties: {
+    description: 'API container app has restarted more than twice in a 5-minute window'
+    severity: 1
+    enabled: true
+    scopes: [resourceId('Microsoft.App/containerApps', containerAppApi.outputs.name)]
+    evaluationFrequency: 'PT1M'
+    windowSize: 'PT5M'
+    criteria: {
+      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
+      allOf: [
+        {
+          name: 'RestartCount'
+          metricName: 'RestartCount'
+          metricNamespace: 'Microsoft.App/containerApps'
+          operator: 'GreaterThan'
+          threshold: 2
+          timeAggregation: 'Total'
+          criterionType: 'StaticThresholdCriterion'
+        }
+      ]
+    }
+    actions: [
+      {
+        actionGroupId: actionGroup.id
+      }
+    ]
+    autoMitigate: false
   }
 }
 

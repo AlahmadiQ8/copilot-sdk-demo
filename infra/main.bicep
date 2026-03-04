@@ -33,6 +33,9 @@ param azureModelName string = 'o4-mini'
 @description('Azure OpenAI model version (must match the model name; see `az cognitiveservices model list`)')
 param azureModelVersion string = '2025-04-16'
 
+@description('Email address for Azure Monitor alert notifications. Leave empty to disable.')
+param alertEmail string = ''
+
 var tags = { 'azd-env-name': environmentName }
 var resourceSuffix = take(uniqueString(subscription().id, environmentName), 6)
 var shortName = take(replace(environmentName, '-', ''), 10)
@@ -56,6 +59,7 @@ module resources './resources.bicep' = {
     useAzureModel: useAzureModel
     azureModelName: azureModelName
     azureModelVersion: azureModelVersion
+    alertEmail: alertEmail
   }
 }
 
